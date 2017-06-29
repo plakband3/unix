@@ -1,3 +1,4 @@
+#!/bin/bash
 #master salt-master
 sudo apt-get update
 sudo apt-get upgrade #Y
