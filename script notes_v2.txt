@@ -1,0 +1,194 @@
+#master
+sudo apt-get update
+sudo apt-get upgrade //Y
+sudo apt-get install -y salt-master
+sudo systemctl stop salt-master
+sudo nano /etc/salt/master
+- #interface: 0.0.0.0
++ interface: 127.0.0.1
+sudo reboot now
+sudo systemctl start salt-master
+#sudo systemctl status salt-master //eigen controle
+sudo salt-key -A //MOET GEACCEPTEERD WORDEN Y
+
+#master - munin /update|upgrade moet zijn uitgevoerd
+sudo apt-get -y install apache2 libcgi-fast-perl libapache2-mod-fcgid
+sudo a2enmod fcgid 
+sudo apt-get -y install munin munin-node munin-plugins-extra
+cd /etc/munin/plugins
+sudo ln -s /usr/share/munin/plugins/mysql_ mysql_
+sudo ln -s /usr/share/munin/plugins/mysql_bytes mysql_bytes
+sudo ln -s /usr/share/munin/plugins/mysql_queries mysql_queries
+sudo ln -s /usr/share/munin/plugins/mysql_slowqueries mysql_slowqueries
+sudo ln -s /usr/share/munin/plugins/mysql_threads mysql_threads
+sudo nano /etc/munin/munin.conf
+- #dbdir  /var/lib/munin
+- #htmldir /var/cache/munin/www
+- #logdir /var/log/munin
+- #rundir  /var/run/munin
++ dbdir  /var/lib/munin
++ htmldir /var/cache/munin/www
++ logdir /var/log/munin
++ rundir  /var/run/munin
+- #tmpldir        /etc/munin/templates
++ tmpldir /etc/munin/templates
+- [localhost.localdomain]
++ [joostholwerda.holwerda.nl]
+sudo mv /etc/munin/apache24.conf /etc/munin/apache24.conf_bak
+sudo nano /etc/munin/apache24.conf
++
+Alias /munin /var/cache/munin/www
+<Directory /var/cache/munin/www>
+ # Require local
+ Require all granted
+ Options FollowSymLinks SymLinksIfOwnerMatch
+ Options None
+</Directory>
+
+ScriptAlias /munin-cgi/munin-cgi-graph /usr/lib/munin/cgi/munin-cgi-graph
+<Location /munin-cgi/munin-cgi-graph>
+ # Require local
+ Require all granted
+ Options FollowSymLinks SymLinksIfOwnerMatch
+ <IfModule mod_fcgid.c>
+ SetHandler fcgid-script
+ </IfModule>
+ <IfModule !mod_fcgid.c>
+ SetHandler cgi-script
+ </IfModule>
+</Location>
++
+sudo service apache2 restart
+sudo service munin-node restart
+sudo htpasswd -c /etc/munin/munin-htpasswd joostholwerda
+#ENTER PASSWORD
+sudo nano /etc/munin/apache24.conf
++
+Alias /munin /var/cache/munin/www
+<Directory /var/cache/munin/www>
+ # Require local
+ # Require all granted
+ AuthUserFile /etc/munin/munin-htpasswd
+ AuthName "Munin"
+ AuthType Basic
+ Require valid-user
+ Options None
+</Directory>
+
+ScriptAlias /munin-cgi/munin-cgi-graph /usr/lib/munin/cgi/munin-cgi-graph
+<Location /munin-cgi/munin-cgi-graph>
+ # Require local
+ # Require all granted
+ AuthUserFile /etc/munin/munin-htpasswd
+ AuthName "Munin"
+ AuthType Basic
+ Require valid-user
+ <IfModule mod_fcgid.c>
+ SetHandler fcgid-script
+ </IfModule>
+ <IfModule !mod_fcgid.c>
+ SetHandler cgi-script
+ </IfModule>
+</Location>
++
+sudo service apache2 restart
+
+
+
+#minion salt
+sudo apt-get update
+sudo apt-get  //Y
+sudo apt-get install -y salt-minion
+sudo systemctl stop salt-minion
+sudo nano /etc/salt/minion
+- #master: salt
++ master: 10.3.0.34
+sudo reboot now 
+
+#minion munin
+sudo apt-get install -y munin-node
+sudo nano /etc/munin/munin-node.conf
+- allow ^127.0.0.1$
++ allow ^145\.37\.234\.205$
+sudo service munin-node restart
+
+#master munin
+sudo nano /etc/munin/munin.conf
++ [MuninNode]
++     address 145.37.234.88
++     use_node_name yes
+sudo service apache2 restart
+
+#master elastic stack
+sudo apt-get update
+sudo apt-get install -y python-software-properties software-properties-common apt-transport-https
+sudo add-apt-repository ppa:webupd8team/java -y
+sudo apt-get update
+sudo apt-get install -y oracle-java8-installer
+OK | YES
+
+sudo wget -qO - https://artifacts.elastic.co/GPG-KEY-elasticsearch | sudo apt-key add -
+sudo echo "deb https://artifacts.elastic.co/packages/5.x/apt stable main" | sudo tee -a /etc/apt/sources.list.d/elastic-5.x.list
+sudo apt-get update
+sudo apt-get install -y elasticsearch
+sudo nano /etc/elasticsearch/elasticsearch.yml
+- #bootstrap.memory_lock: true
++ bootstrap.memory_lock: true
+- #network.host: 192.168.0.1
++ network.host: 127.0.0.1
+- #http.port: 9200
++ http.port: 9200
+sudo nano /usr/lib/systemd/system/elasticsearch.service
+- #LimitMEMLOCK=infinity
++ LimitMEMLOCK=infinity
+sudo nano /etc/default/elasticsearch
+- #MAX_LOCKED_MEMORY=unlimited
++ MAX_LOCKED_MEMORY=unlimited
+sudo systemctl daemon-reload
+sudo systemctl enable elasticsearch
+sudo systemctl start elasticsearch
+sudo netstat -plntu
+
+
+#docker master
+sudo curl -fsSL https://download.docker.com/linux/ubuntu/gpg | sudo apt-key add -
+sudo add-apt-repository "deb [arch=amd64] https://download.docker.com/linux/ubuntu $(lsb_release -cs) stable"
+sudo apt-get update
+sudo apt-cache policy docker-ce
+sudo apt-get install -y docker-ce
+
+
+#wordpress on docker
+sudo docker pull mariadb
+sudo mkdir ~/wordpress
+sudo mkdir -p ~/wordpress/database
+sudo mkdir -p ~/wordpress/html
+sudo docker run -e MYSQL_ROOT_PASSWORD=aqwe123 -e MYSQL_USER=wpuser -e MYSQL_PASSWORD=wpuser@ -e MYSQL_DATABASE=wordpress_db -v /root/wordpress/database:/var/lib/mysql --name wordpressdb -d mariadb
+sudo apt-get install mysql-client-core-5.7
+
+sudo mysql -u wpuser -h 172.17.0.2 -p
+sudo TYPE PASSWORD: wpuser@
+cntr_Z
+
+sudo docker pull wordpress:latest
+sudo docker run -e WORDPRESS_DB_USER=wpuser -e WORDPRESS_DB_PASSWORD=wpuser@ -e WORDPRESS_DB_NAME=wordpress_db -p 8081:80 -v /root/wordpress/html:/var/www/html --link wordpressdb:mysql --name wpcontainer -d wordpress
+sudo curl -I 10.3.0.34:8081
+sudo apt-get install -y nginx
+sudo nano /etc/nginx/sites-available/wordpress
++server {
+  listen 80;
+  server_name wordpress-docker.co www.wordpress-docker.co;
+
+  location / {
+    proxy_pass http://localhost:8081;
+    proxy_set_header Host $host;
+    proxy_set_header X-Real-IP $remote_addr;
+    proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
+  }
+}+
+sudo ln -s /etc/nginx/sites-available/wordpress /etc/nginx/sites-enabled/
+sudo rm -f /etc/nginx/sites-available/default
+sudo rm -f /etc/nginx/sites-enabled/default
+sudo systemctl restart nginx
+
+
